@@ -10,10 +10,8 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  pointerWithin,
   rectIntersection,
 } from '@dnd-kit/core';
-import { motion, AnimatePresence } from 'framer-motion';
 import Column from './Column';
 import useBoardStore from '../store/useBoardStore';
 import { PRIORITIES } from '../utils/helpers';
@@ -50,44 +48,38 @@ export default function Board() {
   }, [searchQuery, columns]);
 
   const handleDragStart = useCallback((event) => {
+    const { active } = event;
     setActiveCard({
-      id: event.active.id,
-      columnId: event.active.data?.current?.columnId,
+      id: active.id,
+      columnId: active.data?.current?.columnId,
     });
   }, []);
 
   const handleDragEnd = useCallback(
     (event) => {
       const { active, over } = event;
+
+      // Always clear active card first
       setActiveCard(null);
 
+      // Bail if no valid drop target
       if (!over || !active) return;
 
       const fromColumnId = active.data?.current?.columnId;
       if (!fromColumnId) return;
 
-      /*
-       * FIX 5: Read columns fresh from the store at drag-end time,
-       * not from a stale closure or memoized value. This ensures
-       * we resolve against the actual current state.
-       */
+      // Read fresh state directly from store — never stale
       const currentColumns = useBoardStore.getState().columns;
       const columnIdSet = new Set(currentColumns.map((c) => c.id));
 
       let toColumnId = null;
 
-      // If over.id is directly a column, use it
       if (columnIdSet.has(over.id)) {
+        // Dropped directly on a column droppable
         toColumnId = over.id;
-      } else {
-        // over.id is a card — find which column owns that card
-        for (const col of currentColumns) {
-          if (col.cards.some((card) => card.id === over.id)) {
-            toColumnId = col.id;
-            break;
-          }
-        }
       }
+      // Cards are NOT droppables, so over.id should always be a column id.
+      // But if somehow it's not, bail safely.
 
       if (!toColumnId) return;
       if (fromColumnId === toColumnId) return;
@@ -97,7 +89,9 @@ export default function Board() {
     [moveCard]
   );
 
-  const handleDragCancel = useCallback(() => setActiveCard(null), []);
+  const handleDragCancel = useCallback(() => {
+    setActiveCard(null);
+  }, []);
 
   const handleAddColumn = () => {
     if (!newColumnTitle.trim()) {
@@ -110,18 +104,7 @@ export default function Board() {
     setColumnError('');
   };
 
-  /*
-   * Custom collision detection: pointerWithin first (precise —
-   * checks if the pointer is inside a droppable rect), then
-   * rectIntersection as fallback.
-   */
-  const collisionDetection = useCallback((args) => {
-    const pointerCollisions = pointerWithin(args);
-    if (pointerCollisions.length > 0) return pointerCollisions;
-    return rectIntersection(args);
-  }, []);
-
-  // Get the card data for the drag overlay
+  // Get the card data for the overlay (the ghost following cursor)
   const activeCardData = useMemo(() => {
     if (!activeCard) return null;
     for (const col of columns) {
@@ -138,116 +121,119 @@ export default function Board() {
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={collisionDetection}
+      collisionDetection={rectIntersection}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
       <div className="flex gap-5 p-6 overflow-x-auto flex-1 items-start">
-        <AnimatePresence mode="sync">
-          {columns.map((column) => (
-            <Column
-              key={column.id}
-              column={column}
-              highlightedCards={highlightedCards}
-            />
-          ))}
-        </AnimatePresence>
+        {columns.map((column) => (
+          <Column
+            key={column.id}
+            column={column}
+            highlightedCards={highlightedCards}
+          />
+        ))}
 
         {/* Add Column */}
         <div className="min-w-[320px]">
-          <AnimatePresence mode="wait">
-            {showAddColumn ? (
-              <motion.div
-                key="form"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className="p-4 bg-surface-column rounded-2xl border border-edge space-y-3"
+          {showAddColumn ? (
+            <div className="p-4 bg-surface-column rounded-2xl border border-edge space-y-3">
+              <input
+                type="text"
+                value={newColumnTitle}
+                onChange={(e) => {
+                  setNewColumnTitle(e.target.value);
+                  if (columnError) setColumnError('');
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleAddColumn();
+                  if (e.key === 'Escape') {
+                    setShowAddColumn(false);
+                    setNewColumnTitle('');
+                    setColumnError('');
+                  }
+                }}
+                placeholder="Column title..."
+                autoFocus
+                className="w-full px-3 py-2 text-sm bg-surface border border-edge rounded-xl text-txt placeholder-txt-secondary focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent"
+              />
+              {columnError && (
+                <p className="text-xs text-err ml-1">{columnError}</p>
+              )}
+              <div className="flex gap-2">
+                <button
+                  onClick={handleAddColumn}
+                  className="flex-1 px-3 py-2 text-sm font-medium text-white bg-brand hover:brightness-110 rounded-xl transition-all cursor-pointer"
+                >
+                  Add Column
+                </button>
+                <button
+                  onClick={() => {
+                    setShowAddColumn(false);
+                    setNewColumnTitle('');
+                    setColumnError('');
+                  }}
+                  className="px-3 py-2 text-sm font-medium text-txt-secondary bg-surface-input hover:bg-hover rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowAddColumn(true)}
+              className="w-full py-4 text-sm font-medium text-txt-secondary hover:text-brand bg-surface-column/50 hover:bg-surface-column rounded-2xl border-2 border-dashed border-edge hover:border-brand transition-all cursor-pointer flex items-center justify-center gap-2"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
               >
-                <input
-                  type="text"
-                  value={newColumnTitle}
-                  onChange={(e) => {
-                    setNewColumnTitle(e.target.value);
-                    if (columnError) setColumnError('');
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleAddColumn();
-                    if (e.key === 'Escape') {
-                      setShowAddColumn(false);
-                      setNewColumnTitle('');
-                      setColumnError('');
-                    }
-                  }}
-                  placeholder="Column title..."
-                  autoFocus
-                  className="w-full px-3 py-2 text-sm bg-surface border border-edge rounded-xl text-txt placeholder-txt-secondary focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent"
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 4v16m8-8H4"
                 />
-                {columnError && (
-                  <p className="text-xs text-err ml-1">{columnError}</p>
-                )}
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleAddColumn}
-                    className="flex-1 px-3 py-2 text-sm font-medium text-white bg-brand hover:brightness-110 rounded-xl transition-all cursor-pointer"
-                  >
-                    Add Column
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowAddColumn(false);
-                      setNewColumnTitle('');
-                      setColumnError('');
-                    }}
-                    className="px-3 py-2 text-sm font-medium text-txt-secondary bg-surface-input hover:bg-hover rounded-xl transition-colors cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </motion.div>
-            ) : (
-              <motion.button
-                key="button"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setShowAddColumn(true)}
-                className="w-full py-4 text-sm font-medium text-txt-secondary hover:text-brand bg-surface-column/50 hover:bg-surface-column rounded-2xl border-2 border-dashed border-edge hover:border-brand transition-all cursor-pointer flex items-center justify-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
-                Add Column
-              </motion.button>
-            )}
-          </AnimatePresence>
+              </svg>
+              Add Column
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Drag Overlay — the ghost card that follows the cursor */}
+      {/* Drag Overlay — single ghost card following cursor */}
       <DragOverlay dropAnimation={null}>
-        {activeCardData && (
-          <motion.div
-            initial={{ scale: 1 }}
-            animate={{ scale: 1.05, rotate: 2 }}
-            className="p-3 bg-surface rounded-xl border border-brand shadow-xl w-[280px] opacity-90 pointer-events-none"
-            style={{ boxShadow: '0 8px 30px var(--shadow-color)' }}
+        {activeCardData ? (
+          <div
+            className="p-3 bg-surface rounded-xl border border-brand w-[280px] opacity-90 pointer-events-none"
+            style={{
+              boxShadow: '0 12px 40px var(--shadow-color)',
+              transform: 'rotate(2deg) scale(1.04)',
+            }}
           >
-            <h4 className="text-sm font-semibold text-txt">{activeCardData.title}</h4>
+            <h4 className="text-sm font-semibold text-txt">
+              {activeCardData.title}
+            </h4>
             {activeCardData.description && (
-              <p className="mt-1 text-xs text-txt-secondary line-clamp-2">{activeCardData.description}</p>
+              <p className="mt-1 text-xs text-txt-secondary line-clamp-2">
+                {activeCardData.description}
+              </p>
             )}
             <div className="mt-2">
-              <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full ${activePriority.bgColor} ${activePriority.textColor}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${activePriority.dotColor}`} />
+              <span
+                className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full ${activePriority.bgColor} ${activePriority.textColor}`}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${activePriority.dotColor}`}
+                />
                 {activePriority.label}
               </span>
             </div>
-          </motion.div>
-        )}
+          </div>
+        ) : null}
       </DragOverlay>
     </DndContext>
   );
