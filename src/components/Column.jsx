@@ -41,7 +41,6 @@ export default function Column({ column, highlightedCards }) {
 
   return (
     <motion.div
-      layout
       initial={{ opacity: 0, scale: 0.95, y: 20 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95, y: 20, transition: { duration: 0.2 } }}
@@ -109,7 +108,20 @@ export default function Column({ column, highlightedCards }) {
 
       {/* Cards */}
       <div ref={setNodeRef} className="flex-1 overflow-y-auto p-3 space-y-2.5 min-h-[80px]">
-        <AnimatePresence mode="popLayout">
+        {/*
+         * FIX 4: Changed AnimatePresence mode from "popLayout" to "sync".
+         *
+         * "popLayout" keeps exiting elements in the DOM flow during their exit
+         * animation, then pops them out. During a drag-drop move, the card
+         * unmounts from column A (exit animation plays) while simultaneously
+         * mounting in column B (enter animation plays). With "popLayout",
+         * both the exiting ghost in A and the entering card in B are visible
+         * at the same time — creating the duplicate.
+         *
+         * "sync" mode lets enter/exit happen concurrently without holding
+         * layout space for exiting items, eliminating the visual duplicate.
+         */}
+        <AnimatePresence mode="sync">
           {cards.map((card) => (
             <Card key={card.id} card={card} columnId={id} isHighlighted={highlightedCards?.has(card.id)} />
           ))}
