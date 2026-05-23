@@ -28,7 +28,12 @@ export default function Board() {
   const [newColumnTitle, setNewColumnTitle] = useState('');
   const [columnError, setColumnError] = useState('');
 
-  // Ref for the scrollable board container — used by edge scroll hook
+  /*
+   * Board container scrolls in both directions:
+   * - overflow-x for columns that go off-screen horizontally
+   * - overflow-y for columns that grow taller than the viewport
+   * The edge scroll hook handles auto-scrolling in all 4 directions.
+   */
   const boardRef = useRef(null);
   useEdgeScroll(boardRef);
 
@@ -124,10 +129,15 @@ export default function Board() {
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
-      {/* Scrollable board area with edge-scroll support */}
+      {/*
+       * Board scrolls in BOTH directions:
+       * - overflow-x-auto: horizontal scroll for off-screen columns
+       * - overflow-y-auto: vertical scroll when columns grow tall
+       * - items-start: columns align to top, each grows independently
+       */}
       <div
         ref={boardRef}
-        className="flex gap-5 p-6 overflow-x-auto flex-1 items-start scroll-smooth"
+        className="flex gap-5 p-6 overflow-x-auto overflow-y-auto flex-1 items-start"
       >
         {columns.map((column) => (
           <Column
