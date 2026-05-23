@@ -3,7 +3,7 @@
  * Developed by Huncho.dev
  */
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -15,6 +15,7 @@ import {
 import Column from './Column';
 import useBoardStore from '../store/useBoardStore';
 import { PRIORITIES } from '../utils/helpers';
+import useEdgeScroll from '../hooks/useEdgeScroll';
 
 export default function Board() {
   const columns = useBoardStore((s) => s.columns);
@@ -26,6 +27,10 @@ export default function Board() {
   const [showAddColumn, setShowAddColumn] = useState(false);
   const [newColumnTitle, setNewColumnTitle] = useState('');
   const [columnError, setColumnError] = useState('');
+
+  // Ref for the scrollable board container — used by edge scroll hook
+  const boardRef = useRef(null);
+  useEdgeScroll(boardRef);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -59,27 +64,21 @@ export default function Board() {
     (event) => {
       const { active, over } = event;
 
-      // Always clear active card first
       setActiveCard(null);
 
-      // Bail if no valid drop target
       if (!over || !active) return;
 
       const fromColumnId = active.data?.current?.columnId;
       if (!fromColumnId) return;
 
-      // Read fresh state directly from store — never stale
       const currentColumns = useBoardStore.getState().columns;
       const columnIdSet = new Set(currentColumns.map((c) => c.id));
 
       let toColumnId = null;
 
       if (columnIdSet.has(over.id)) {
-        // Dropped directly on a column droppable
         toColumnId = over.id;
       }
-      // Cards are NOT droppables, so over.id should always be a column id.
-      // But if somehow it's not, bail safely.
 
       if (!toColumnId) return;
       if (fromColumnId === toColumnId) return;
@@ -104,7 +103,6 @@ export default function Board() {
     setColumnError('');
   };
 
-  // Get the card data for the overlay (the ghost following cursor)
   const activeCardData = useMemo(() => {
     if (!activeCard) return null;
     for (const col of columns) {
@@ -126,7 +124,11 @@ export default function Board() {
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
-      <div className="flex gap-5 p-6 overflow-x-auto flex-1 items-start">
+      {/* Scrollable board area with edge-scroll support */}
+      <div
+        ref={boardRef}
+        className="flex gap-5 p-6 overflow-x-auto flex-1 items-start scroll-smooth"
+      >
         {columns.map((column) => (
           <Column
             key={column.id}
@@ -204,7 +206,7 @@ export default function Board() {
         </div>
       </div>
 
-      {/* Drag Overlay — single ghost card following cursor */}
+      {/* Drag Overlay */}
       <DragOverlay dropAnimation={null}>
         {activeCardData ? (
           <div
