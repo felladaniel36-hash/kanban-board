@@ -1,0 +1,114 @@
+@import "tailwindcss";
+
+/*
+ * Kanban Board — Huncho.dev
+ * Design Tokens & Custom Styles
+ */
+
+/* ── Day Mode (default) ─────────────────────────────── */
+:root {
+  --background: #F5F7FA;
+  --primary-theme: #2563EB;
+  --secondary-theme: #7C3AED;
+  --text-primary: #111827;
+  --text-secondary: #4B5563;
+  --accent: #06B6D4;
+  --border: #D1D5DB;
+  --card-surface: #FFFFFF;
+  --hover-state: #E0E7FF;
+  --success: #16A34A;
+  --warning: #F59E0B;
+  --danger: #DC2626;
+
+  --column-bg: #EEF1F6;
+  --header-bg: rgba(255, 255, 255, 0.85);
+  --footer-bg: rgba(255, 255, 255, 0.6);
+  --input-bg: #F0F2F5;
+  --badge-bg: #E2E6EC;
+  --overlay-bg: rgba(255, 255, 255, 0.95);
+  --drag-placeholder-bg: rgba(37, 99, 235, 0.06);
+  --drag-placeholder-border: #93C5FD;
+  --shadow-color: rgba(37, 99, 235, 0.12);
+}
+
+/* ── Night Mode ─────────────────────────────────────── */
+.dark {
+  --background: #0B1120;
+  --primary-theme: #3B82F6;
+  --secondary-theme: #A855F7;
+  --text-primary: #F9FAFB;
+  --text-secondary: #9CA3AF;
+  --accent: #22D3EE;
+  --border: #1F2937;
+  --card-surface: #111827;
+  --hover-state: #1E293B;
+  --success: #22C55E;
+  --warning: #FBBF24;
+  --danger: #F87171;
+
+  --column-bg: #0F1A2E;
+  --header-bg: rgba(11, 17, 32, 0.85);
+  --footer-bg: rgba(11, 17, 32, 0.6);
+  --input-bg: #162032;
+  --badge-bg: #1A2538;
+  --overlay-bg: rgba(17, 24, 39, 0.95);
+  --drag-placeholder-bg: rgba(59, 130, 246, 0.08);
+  --drag-placeholder-border: #1E40AF;
+  --shadow-color: rgba(59, 130, 246, 0.15);
+}
+
+/* ── Global Transitions ─────────────────────────────── */
+html {
+  transition: background-color 0.35s ease, color 0.35s ease;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--text-primary);
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+/* ── Scrollbar ──────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--text-secondary);
+  border-radius: 3px;
+  opacity: 0.5;
+}
+::-webkit-scrollbar-thumb:hover {
+  opacity: 0.8;
+}
+
+/* ── Tailwind v4 custom theme tokens ────────────────── */
+@theme {
+  --color-surface: var(--card-surface);
+  --color-surface-column: var(--column-bg);
+  --color-surface-header: var(--header-bg);
+  --color-surface-footer: var(--footer-bg);
+  --color-surface-input: var(--input-bg);
+  --color-surface-badge: var(--badge-bg);
+  --color-surface-overlay: var(--overlay-bg);
+
+  --color-brand: var(--primary-theme);
+  --color-brand-secondary: var(--secondary-theme);
+  --color-brand-accent: var(--accent);
+
+  --color-txt: var(--text-primary);
+  --color-txt-secondary: var(--text-secondary);
+
+  --color-edge: var(--border);
+  --color-hover: var(--hover-state);
+
+  --color-ok: var(--success);
+  --color-warn: var(--warning);
+  --color-err: var(--danger);
+
+  --color-drag-ph-bg: var(--drag-placeholder-bg);
+  --color-drag-ph-border: var(--drag-placeholder-border);
+  --color-shadow: var(--shadow-color);
+}
