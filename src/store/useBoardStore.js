@@ -117,25 +117,35 @@ const useBoardStore = create((set) => ({
   },
 
   moveCard: (fromColumnId, toColumnId, cardId) => {
+    // Guard: same column = no-op
     if (fromColumnId === toColumnId) return;
+
     set((state) => {
-      let movedCard = null;
-      const withoutCard = state.columns.map((col) => {
+      // Guard: both columns must exist
+      const fromCol = state.columns.find((col) => col.id === fromColumnId);
+      const toCol = state.columns.find((col) => col.id === toColumnId);
+      if (!fromCol || !toCol) return state;
+
+      // Guard: the card must actually be in the source column
+      const movedCard = fromCol.cards.find((card) => card.id === cardId);
+      if (!movedCard) return state;
+
+      // Guard: the card must NOT already be in the target column (prevents duplication)
+      if (toCol.cards.some((card) => card.id === cardId)) return state;
+
+      // Atomic: remove from source + add to target in one pass
+      const newColumns = state.columns.map((col) => {
         if (col.id === fromColumnId) {
-          movedCard = col.cards.find((card) => card.id === cardId);
           return { ...col, cards: col.cards.filter((card) => card.id !== cardId) };
         }
-        return col;
-      });
-      if (!movedCard) return state;
-      const finalColumns = withoutCard.map((col) => {
         if (col.id === toColumnId) {
           return { ...col, cards: [...col.cards, movedCard] };
         }
         return col;
       });
-      saveToStorage(finalColumns);
-      return { columns: finalColumns };
+
+      saveToStorage(newColumns);
+      return { columns: newColumns };
     });
   },
 }));
