@@ -40,7 +40,7 @@ export default function Column({ column, highlightedCards }) {
 
   return (
     <div
-      className={`relative flex flex-col w-[320px] min-w-[320px] max-h-[calc(100vh-160px)] bg-surface-column rounded-2xl border transition-all duration-200 ${
+      className={`relative flex flex-col w-[320px] min-w-[320px] bg-surface-column rounded-2xl border transition-all duration-200 ${
         isOver
           ? 'border-brand shadow-lg bg-drag-ph-bg'
           : 'border-edge'
@@ -48,7 +48,7 @@ export default function Column({ column, highlightedCards }) {
       style={isOver ? { boxShadow: '0 8px 25px var(--shadow-color)' } : undefined}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-edge">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-edge shrink-0">
         <div className="flex items-center gap-2 flex-1 min-w-0">
           {isEditingTitle ? (
             <input
@@ -127,10 +127,14 @@ export default function Column({ column, highlightedCards }) {
         </div>
       </div>
 
-      {/* Cards — plain div, NO AnimatePresence, NO motion wrappers */}
+      {/*
+       * Cards area — NO max-height, NO overflow-y.
+       * The column grows to fit ALL its cards.
+       * The parent board container handles scrolling.
+       */}
       <div
         ref={setNodeRef}
-        className="flex-1 overflow-y-auto p-3 space-y-2.5 min-h-[80px]"
+        className="p-3 space-y-2.5 min-h-[80px]"
       >
         {cards.map((card) => (
           <Card
@@ -162,7 +166,7 @@ export default function Column({ column, highlightedCards }) {
       </div>
 
       {/* Add Card */}
-      <div className="p-3 pt-0">
+      <div className="p-3 pt-0 shrink-0">
         {showAddForm ? (
           <AddCardForm
             onAdd={handleAddCard}
