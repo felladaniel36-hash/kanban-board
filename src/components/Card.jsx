@@ -23,10 +23,6 @@ export default function Card({ card, columnId, isHighlighted }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({ id, data: { cardId: id, columnId } });
 
-  const style = transform
-    ? { transform: `translate(${transform.x}px, ${transform.y}px)` }
-    : undefined;
-
   const priorityConfig = PRIORITIES[priority] || PRIORITIES.medium;
 
   const handleSaveEdit = () => {
@@ -46,32 +42,50 @@ export default function Card({ card, columnId, isHighlighted }) {
     setIsEditing(false);
   };
 
+  /*
+   * FIX 1: When dragging, render a fixed-position placeholder.
+   * Do NOT apply `transform` here — the placeholder must stay
+   * in place while the DragOverlay follows the cursor.
+   * Also set opacity to 0.4 so it's clearly a placeholder, not a duplicate.
+   */
   if (isDragging) {
     return (
       <div
         ref={setNodeRef}
-        style={style}
-        className="p-3 rounded-xl border-2 border-dashed border-drag-ph-border bg-drag-ph-bg h-[80px]"
+        className="p-3 rounded-xl border-2 border-dashed border-drag-ph-border bg-drag-ph-bg h-[80px] opacity-40"
       />
     );
   }
 
+  /*
+   * FIX 2: Apply transform via inline style only when NOT dragging.
+   * This moves the card under the cursor during the grab phase
+   * (before isDragging kicks in due to the distance threshold).
+   */
+  const dragStyle = transform
+    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
+    : undefined;
+
   return (
+    /*
+     * FIX 3: Removed Framer Motion `layout` prop.
+     * `layout` causes ghost animations when a card unmounts from
+     * one column and mounts in another — Framer Motion animates
+     * the layout shift, creating a visible "flying duplicate".
+     */
     <motion.div
-      layout
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0, scale: isHighlighted ? 1.02 : 1 }}
-      exit={{ opacity: 0, x: -20, transition: { duration: 0.2 } }}
+      exit={{ opacity: 0, transition: { duration: 0.15 } }}
       transition={{ duration: 0.2 }}
       ref={setNodeRef}
-      style={style}
+      style={isHighlighted ? { ...dragStyle, boxShadow: '0 4px 16px var(--shadow-color)' } : dragStyle}
       {...(isEditing ? {} : { ...listeners, ...attributes })}
-      className={`group relative p-3 bg-surface rounded-xl border shadow-sm transition-all cursor-grab active:cursor-grabbing ${
+      className={`group relative p-3 bg-surface rounded-xl border shadow-sm transition-shadow cursor-grab active:cursor-grabbing ${
         isHighlighted
           ? 'border-brand ring-2 ring-brand/30'
           : 'border-edge hover:shadow-md'
       }`}
-      {...(isHighlighted ? { style: { ...style, boxShadow: '0 4px 16px var(--shadow-color)' } } : {})}
     >
       {isEditing ? (
         <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
