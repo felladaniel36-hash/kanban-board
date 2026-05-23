@@ -1,36 +1,42 @@
 /*
- * Kanban Board — Edge Scroll Hook
+ * Kanban Board — Edge Scroll Hook (4-directional)
  * Developed by Huncho.dev
  *
- * When the user moves their cursor (or finger) within a hot zone
- * near the left or right edge of the scrollable container, this
- * hook auto-scrolls the container in that direction. Works for
- * both mouse and touch. Scroll speed increases the closer the
- * pointer is to the edge.
+ * Auto-scrolls a container when the cursor / finger moves
+ * near any edge: left, right, top, or bottom.
+ * Speed scales with proximity — closer = faster.
+ * Works for mouse and touch.
  */
 
 import { useEffect, useRef, useCallback } from 'react';
 
-const EDGE_ZONE = 60; // px from edge where scrolling activates
+const EDGE_ZONE = 60; // px from any edge where scrolling activates
 const MAX_SPEED = 18; // px per frame at the very edge
-const MIN_SPEED = 3;  // px per frame at the outer boundary of the zone
+const MIN_SPEED = 3;  // px per frame at the zone boundary
+
+function calcSpeed(distFromEdge) {
+  const ratio = 1 - Math.max(0, Math.min(distFromEdge, EDGE_ZONE)) / EDGE_ZONE;
+  return Math.round(MIN_SPEED + (MAX_SPEED - MIN_SPEED) * ratio);
+}
 
 export default function useEdgeScroll(containerRef) {
   const rafId = useRef(null);
-  const scrollDirection = useRef(0); // -1 = left, 0 = none, 1 = right
+  const scrollX = useRef(0);
+  const scrollY = useRef(0);
 
   const tick = useCallback(() => {
     const el = containerRef.current;
-    if (!el || scrollDirection.current === 0) {
+    if (!el || (scrollX.current === 0 && scrollY.current === 0)) {
       rafId.current = null;
       return;
     }
-    el.scrollLeft += scrollDirection.current;
+    if (scrollX.current !== 0) el.scrollLeft += scrollX.current;
+    if (scrollY.current !== 0) el.scrollTop += scrollY.current;
     rafId.current = requestAnimationFrame(tick);
   }, [containerRef]);
 
   const startLoop = useCallback(() => {
-    if (rafId.current) return; // already running
+    if (rafId.current) return;
     rafId.current = requestAnimationFrame(tick);
   }, [tick]);
 
@@ -39,35 +45,53 @@ export default function useEdgeScroll(containerRef) {
       cancelAnimationFrame(rafId.current);
       rafId.current = null;
     }
-    scrollDirection.current = 0;
+    scrollX.current = 0;
+    scrollY.current = 0;
   }, []);
 
-  const handlePointerPosition = useCallback(
-    (clientX) => {
+  const handlePointer = useCallback(
+    (clientX, clientY) => {
       const el = containerRef.current;
       if (!el) return;
 
       const rect = el.getBoundingClientRect();
-      const distFromLeft = clientX - rect.left;
-      const distFromRight = rect.right - clientX;
+      const distLeft = clientX - rect.left;
+      const distRight = rect.right - clientX;
+      const distTop = clientY - rect.top;
+      const distBottom = rect.bottom - clientY;
 
-      if (distFromLeft < EDGE_ZONE && el.scrollLeft > 0) {
-        // Closer to edge = faster scroll
-        const ratio = 1 - distFromLeft / EDGE_ZONE;
-        const speed = MIN_SPEED + (MAX_SPEED - MIN_SPEED) * ratio;
-        scrollDirection.current = -Math.round(speed);
-        startLoop();
+      let needsLoop = false;
+
+      // Horizontal
+      if (distLeft < EDGE_ZONE && el.scrollLeft > 0) {
+        scrollX.current = -calcSpeed(distLeft);
+        needsLoop = true;
       } else if (
-        distFromRight < EDGE_ZONE &&
+        distRight < EDGE_ZONE &&
         el.scrollLeft < el.scrollWidth - el.clientWidth
       ) {
-        const ratio = 1 - distFromRight / EDGE_ZONE;
-        const speed = MIN_SPEED + (MAX_SPEED - MIN_SPEED) * ratio;
-        scrollDirection.current = Math.round(speed);
-        startLoop();
+        scrollX.current = calcSpeed(distRight);
+        needsLoop = true;
       } else {
-        scrollDirection.current = 0;
-        // Let the current frame finish, loop will stop on its own
+        scrollX.current = 0;
+      }
+
+      // Vertical
+      if (distTop < EDGE_ZONE && el.scrollTop > 0) {
+        scrollY.current = -calcSpeed(distTop);
+        needsLoop = true;
+      } else if (
+        distBottom < EDGE_ZONE &&
+        el.scrollTop < el.scrollHeight - el.clientHeight
+      ) {
+        scrollY.current = calcSpeed(distBottom);
+        needsLoop = true;
+      } else {
+        scrollY.current = 0;
+      }
+
+      if (needsLoop) {
+        startLoop();
       }
     },
     [containerRef, startLoop]
@@ -77,10 +101,10 @@ export default function useEdgeScroll(containerRef) {
     const el = containerRef.current;
     if (!el) return;
 
-    const onMouseMove = (e) => handlePointerPosition(e.clientX);
+    const onMouseMove = (e) => handlePointer(e.clientX, e.clientY);
     const onTouchMove = (e) => {
       if (e.touches.length > 0) {
-        handlePointerPosition(e.touches[0].clientX);
+        handlePointer(e.touches[0].clientX, e.touches[0].clientY);
       }
     };
     const onLeave = () => stopLoop();
@@ -99,9 +123,8 @@ export default function useEdgeScroll(containerRef) {
       el.removeEventListener('touchend', onLeave);
       el.removeEventListener('touchcancel', onLeave);
     };
-  }, [containerRef, handlePointerPosition, stopLoop]);
+  }, [containerRef, handlePointer, stopLoop]);
 
-  // Clean up on unmount
   useEffect(() => {
     return () => stopLoop();
   }, [stopLoop]);
